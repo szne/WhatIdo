@@ -1,0 +1,43 @@
+{
+  // 詳細は https://aka.ms/tsconfig を参照
+  "compilerOptions": {
+    // ファイルレイアウト
+    // "rootDir": "./src",          // ルートディレクトリ
+    // "outDir": "./dist",          // 出力先ディレクトリ
+
+    // 環境設定
+    // 詳細: https://aka.ms/tsconfig/module
+    "module": "ESNext",            // ESNextモジュール出力
+    "target": "ESNext",            // 最新のES構文を出力
+    "moduleResolution": "bundler", // Vite/webpack向け: import時に拡張子不要にする
+    "lib": ["DOM", "DOM.Iterable", "ESNext"], // ブラウザ用の型
+    "types": [],                   // 型定義を追加する場合に設定（例: ["node"]）
+
+    // その他の出力
+    "sourceMap": true,             // ソースマップを生成
+    "declaration": true,           // 型定義ファイル（.d.ts）を生成
+    "declarationMap": true,        // 型定義用ソースマップを生成
+
+    // 厳格な型チェックオプション
+    "strict": true,                // 厳格モード
+    "noUncheckedIndexedAccess": true,       // 配列/オブジェクトのインデックスアクセスを安全に
+    "exactOptionalPropertyTypes": true,     // オプショナルプロパティを厳格に扱う
+
+    // コードスタイル関連オプション
+    // "noImplicitReturns": true,   // return漏れを禁止
+    // "noImplicitOverride": true,  // override漏れを禁止
+    // "noUnusedLocals": true,      // 未使用変数を禁止
+    // "noUnusedParameters": true,  // 未使用引数を禁止
+    // "noFallthroughCasesInSwitch": true, // switch文での抜け落ち禁止
+    // "noPropertyAccessFromIndexSignature": true, // インデックスシグネチャ経由のアクセスを禁止
+
+    // 推奨オプション
+    "jsx": "react-jsx",            // React 17+ の新しいJSX変換
+    "isolatedModules": true,       // 各ファイルを独立モジュールとして扱う
+    "skipLibCheck": true,          // ライブラリ型チェックをスキップしてビルド高速化
+
+    // Viteで推奨されないオプションは外した（例: verbatimModuleSyntax, noUncheckedSideEffectImports）
+    // → bundler解決と競合するため
+  },
+  "include": ["src", "vite-env.d.ts"]
+}
