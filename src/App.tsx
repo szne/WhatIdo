@@ -51,13 +51,13 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "auto" }}>
-      <h1>What you do?</h1>
-      <input value={text} onChange={(e) => setText(e.target.value)} />
-      <button onClick={addPost}>投稿</button>
+    <div className="max-w-md mx-auto p-4">
+      <h1 className="text-2xl font-bold text-center text-blue-600">What you do?</h1>
+      <input value={text} onChange={(e) => setText(e.target.value)} className="border rounded p-2 w-full mt-4"/>
+      <button onClick={addPost} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2">投稿</button>
       <ul>
         {posts.map((p) => (
-          <li key={p.id}>{p.content}</li>
+          <li key={p.id}>{p.created_at} - {p.content}</li>
         ))}
       </ul>
     </div>
