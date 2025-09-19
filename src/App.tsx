@@ -1,29 +1,31 @@
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import Card from "./components/Card";
-import BottomNav from "./components/BottomNav";
+import { useState, useEffect } from "react";
+import Header from "./components/Header";
 import Composer from "./components/Composer";
+import PostCard from "./components/PostCard";
+import BottomNav from "./components/BottomNav";
+import { formatDate } from "./utils/formatDate";
+import { supabase } from "./lib/supabase"; // ← ここに変更
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
-type Post = { id: number; content: string; created_at: string };
+type Post = {
+  id: number;
+  content: string;
+  created_at: string;
+};
 
 export default function App() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [now, setNow] = useState(new Date());
 
+  // リアルタイム時計
   useEffect(() => {
-    fetchPosts();
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  function formatDate(d: Date) {
-    return `${d.getMonth() + 1}/${d.getDate()} ${d.toLocaleTimeString()}`;
-  }
+  // 投稿取得
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
   async function fetchPosts() {
     const { data, error } = await supabase
@@ -33,42 +35,48 @@ export default function App() {
     if (!error && data) setPosts(data);
   }
 
+  // 投稿制限: 1日6件まで
+  const today = new Date().toISOString().slice(0, 10);
+  const todaysPosts = posts.filter((p) => p.created_at.startsWith(today));
+  const postsLeft = 6 - todaysPosts.length;
+
   async function handleSubmit(content: string) {
+    if (!content.trim() || postsLeft <= 0) return;
     const { error } = await supabase.from("posts").insert([{ content }]);
     if (!error) await fetchPosts();
   }
 
   return (
-    <div className="min-h-dvh text-neutral-100">
-      <div className="relative z-10">
-        <div className="mx-auto max-w-md px-4 pb-28 pt-8">
-        <header className="mx-auto max-w-md px-4 pt-10">
-          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
-            What I Do
-          </h1>
-          <p className="mt-2 text-neutral-400">
-            Captured in time — {formatDate(now)}
-          </p>
-        </header>
+    <div className="min-h-dvh bg-neutral-950 text-neutral-100">
+      <div className="mx-auto max-w-md px-4 pb-28 pt-8">
+        {/* Header */}
+        <Header now={now} />
 
         {/* Composer */}
-        <Composer onSubmit={handleSubmit} />
+        <Composer
+          onSubmit={handleSubmit}
+          postsLeft={postsLeft}
+          disabled={postsLeft <= 0}
+        />
 
-        {/* Feed */}
+        {/* Timeline */}
         <div className="mt-6 space-y-4">
+          {/* 日付区切り + サマリーリンク（ダミー） */}
+          <div className="text-center text-neutral-400 text-sm">
+            ——— {today} <button className="underline">view summary</button> ———
+          </div>
+
           {posts.map((p) => (
-            <Card
+            <PostCard
               key={p.id}
-              name="Anonymous"
-              subtitle={new Date(p.created_at).toLocaleString()}
-              text={p.content}
-              avatarColor="#56E0C5"
+              content={p.content}
+              createdAt={formatDate(new Date(p.created_at))}
             />
           ))}
         </div>
       </div>
-      </div>
 
+      {/* Bottom Nav */}
       <BottomNav />
     </div>
   );
