@@ -1,8 +1,13 @@
-type HeaderProps = {
-  now: Date;
-};
+import { useEffect, useState } from "react";
 
-export default function Header({ now }: HeaderProps) {
+export default function Header() {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   // フォーマット: 9/21 23:04:15
   const formatted = `${now.getMonth() + 1}/${now.getDate()} ${now.toLocaleTimeString()}`;
 
