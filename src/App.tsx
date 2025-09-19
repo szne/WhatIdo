@@ -5,7 +5,7 @@ import PostCard from "./components/PostCard";
 import BottomNav from "./components/BottomNav";
 import { formatDate } from "./utils/formatDate";
 import { supabase } from "./lib/supabase";
-import { openai } from "./lib/openai"; // ← 追加
+import { openai } from "./lib/openai";
 
 type Post = {
   id: number;
@@ -16,7 +16,9 @@ type Post = {
 export default function App() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [now, setNow] = useState(new Date());
-  const [summary, setSummary] = useState<string>(""); // AIサマリー
+  const [openSummaryDate, setOpenSummaryDate] = useState<string | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -35,76 +37,133 @@ export default function App() {
     if (!error && data) setPosts(data);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todaysPosts = posts.filter((p) => p.created_at.startsWith(today));
-  const postsLeft = 12 - todaysPosts.length;
-
-  async function handleSubmit(content: string) {
-    if (!content.trim() || postsLeft <= 0) return;
-    const { error } = await supabase.from("posts").insert([{ content }]);
-    if (!error) await fetchPosts();
+  function isAfterSummaryTime(): boolean {
+    const now = new Date();
+    return now.getHours() >= 22; // 22:00以降ならtrue
   }
 
-  // AIサマリー生成
-  async function generateSummary() {
-    if (todaysPosts.length === 0) {
-      setSummary("No posts today.");
+  // サマリー取得 or 生成
+  async function fetchOrGenerateSummary(date: string) {
+  if (!isAfterSummaryTime()) {
+    setSummaries((prev) => ({
+      ...prev,
+      [date]: "サマリーは22:00以降に生成できます。",
+    }));
+    return;
+  }
+
+  setLoading(true);
+  try {
+    // 既存サマリー確認
+    const { data: existing } = await supabase
+      .from("summaries")
+      .select("*")
+      .eq("date", date)
+      .single();
+
+    if (existing) {
+      setSummaries((prev) => ({ ...prev, [date]: existing.content }));
       return;
     }
 
-    const prompt = `
-      以下は今日の投稿です。これをもとに、一日の出来事を短く要約してください。
-      - 出力は100文字以内の要約で。
+    // その日の投稿取得
+    const todaysPosts = posts.filter((p) =>
+      p.created_at.startsWith(date)
+    );
 
-      投稿一覧:
+    if (todaysPosts.length === 0) {
+      setSummaries((prev) => ({
+        ...prev,
+        [date]: "No posts for this day.",
+      }));
+      return;
+    }
+
+    // AIサマリー生成
+    const prompt = `
+      以下は${date}の投稿です。これを100文字程度でまとめてください。
       ${todaysPosts.map((p) => `- ${p.content}`).join("\n")}
     `;
 
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // 軽量で速いモデルを利用
-        messages: [{ role: "user", content: prompt }],
-      });
-      setSummary(response.choices[0]?.message?.content ?? "");
-    } catch (e) {
-      console.error(e);
-      setSummary("サマリー生成に失敗しました。");
-    }
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const summaryText = response.choices[0]?.message?.content ?? "";
+
+    await supabase.from("summaries").insert([{ date, content: summaryText }]);
+
+    setSummaries((prev) => ({ ...prev, [date]: summaryText }));
+  } finally {
+    setLoading(false);
   }
+}
+
+
+  // 日付一覧をユニークにまとめる
+  const uniqueDates = Array.from(
+    new Set(posts.map((p) => p.created_at.slice(0, 10)))
+  );
 
   return (
     <div className="min-h-dvh bg-neutral-950 text-neutral-100">
       <div className="mx-auto max-w-md px-4 pb-28 pt-8">
         <Header now={now} />
-        <Composer onSubmit={handleSubmit} postsLeft={postsLeft} disabled={postsLeft <= 0} />
-        {/* AIサマリー表示 */}
-        <div className="mt-6">
-          <button
-            onClick={generateSummary}
-            className="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold hover:bg-indigo-600"
-          >
-            Generate Summary
-          </button>
-          {summary && (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-neutral-200">
-              {summary}
-            </div>
-          )}
-        </div>
+        <Composer
+          onSubmit={(c) => supabase.from("posts").insert([{ content: c }]).then(fetchPosts)}
+          postsLeft={12 - posts.filter(p => p.created_at.startsWith(new Date().toISOString().slice(0, 10))).length}
+          disabled={false}
+        />
 
-        {/* Timeline */}
-        <div className="mt-6 space-y-4">
-          <div className="text-center text-neutral-400 text-sm">
-            ——— {today} ———
+        {/* 日付ごとのサマリー + 投稿 */}
+        {uniqueDates.map((date) => (
+          <div key={date} className="mt-8">
+            {/* ヘッダー */}
+            <div className="text-center text-neutral-400 text-sm flex justify-center items-center gap-2">
+              ——— {date}{" "}
+              <button
+                onClick={() => {
+                  if (openSummaryDate === date) {
+                    setOpenSummaryDate(null);
+                  } else {
+                    setOpenSummaryDate(date);
+                    fetchOrGenerateSummary(date);
+                  }
+                }}
+                className="underline"
+              >
+                {openSummaryDate === date ? "close summary v" : "view summary >"}
+              </button>{" "}
+              ———
+            </div>
+
+            {/* サマリー部分 */}
+            {openSummaryDate === date && (
+              <div className="mt-3">
+                {loading && <p className="text-neutral-400">Generating...</p>}
+                {!loading && summaries[date] && (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-neutral-200">
+                    {summaries[date]}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* その日の投稿 */}
+            <div className="mt-4 space-y-3">
+              {posts
+                .filter((p) => p.created_at.startsWith(date))
+                .map((p) => (
+                  <PostCard
+                    key={p.id}
+                    content={p.content}
+                    createdAt={formatDate(new Date(p.created_at))}
+                  />
+                ))}
+            </div>
           </div>
-          {posts.map((p) => (
-            <PostCard
-              key={p.id}
-              content={p.content}
-              createdAt={formatDate(new Date(p.created_at))}
-            />
-          ))}
-        </div>
+        ))}
       </div>
       <BottomNav />
     </div>
