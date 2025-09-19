@@ -28,7 +28,7 @@ export default function Composer({ onSubmit, postsLeft, disabled }: ComposerProp
       <div className="mt-3 flex items-center justify-between">
         {/* 残り投稿数 */}
         <span className="text-sm text-neutral-400">
-          {postsLeft} / 12 posts left
+          {postsLeft} / 12 posts left today
         </span>
 
         {/* 投稿ボタン */}

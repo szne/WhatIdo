@@ -4,7 +4,7 @@ type PostCardProps = {
   author?: string; // 将来用（今は "Anonymous" デフォルト）
 };
 
-export default function PostCard({ content, createdAt, author = "Anonymous" }: PostCardProps) {
+export default function PostCard({ content, createdAt, author = "User" }: PostCardProps) {
   return (
     <article className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur">
       <div className="flex gap-3">
