@@ -12,7 +12,9 @@ type Post = {
     content: string;
     created_at: string;
     user_id: string;
+    profiles: { username: string | null };
 };
+
 
 export default function App() {
     const [posts, setPosts] = useState<Post[]>([]);
@@ -41,40 +43,29 @@ export default function App() {
     // 投稿取得
     // =============================
     async function fetchPosts(currentUser = user) {
-        if (!currentUser) {
+        if (!currentUser || !currentUser.id) {
             setPosts([]);
             return;
         }
 
         const { data, error } = await supabase
             .from("posts")
-            .select("*")
+            .select("id, content, created_at, user_id, profiles(username)")
             .eq("user_id", currentUser.id)
             .order("created_at", { ascending: false });
 
-        if (!error && data) setPosts(data);
-    }
+        console.log("posts query result:", { data, error });
 
-    // =============================
-    // 投稿作成
-    // =============================
-    async function handleSubmit(content: string) {
-        if (!user) {
-            alert("ログインしてください");
-            return;
+        if (!error && data) {
+            setPosts(
+                data.map((post: any) => ({
+                    ...post,
+                    profiles: Array.isArray(post.profiles)
+                        ? post.profiles[0] || { username: null }
+                        : post.profiles,
+                }))
+            );  // null の場合は空配列にする
         }
-
-        const today = new Date().toISOString().slice(0, 10);
-        const todaysPosts = posts.filter((p) => p.created_at.startsWith(today));
-        const postsLeft = 6 - todaysPosts.length;
-
-        if (!content.trim() || postsLeft <= 0) return;
-
-        const { error } = await supabase
-            .from("posts")
-            .insert([{ content, user_id: user.id }]);
-
-        if (!error) await fetchPosts();
     }
 
     // =============================
@@ -111,7 +102,7 @@ export default function App() {
                 .from("summaries")
                 .select("*")
                 .eq("date", date)
-                .eq("user_id", user.id) // 👈 ユーザーごと
+                .eq("user_id", user.id)
                 .single();
 
             if (existing) {
@@ -232,6 +223,7 @@ export default function App() {
                                         key={p.id}
                                         content={p.content}
                                         createdAt={formatDate(new Date(p.created_at))}
+                                        username={p.profiles?.username || "anonymous"}
                                     />
                                 ))}
                         </div>
